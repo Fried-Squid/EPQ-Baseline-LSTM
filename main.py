@@ -42,7 +42,9 @@ def shuffleData():
 shuffleData();                                                                  #ensures that the data used in the first few epochs is always different
 print("Example pair: %s" % str(data[0])[1:-1].replace("', ", "' --> '"))        #prints an example bitext pair
 
+rawEn,rawTp = list(zip(*data));english,toki = list(rawEn),list(rawTp)
 english,toki=list(map(lambda x:x.split(" "),english)),list(map(lambda x:x.split(" "),toki)) #ace what the fuck
+
 x = list(map(len, english))
 engToRemove,tokToRemove = [],[]
 for i in x:
@@ -91,7 +93,7 @@ num_decoder_tokens=len(tok_words)+USE_FREQUENCY_RESTRICTION
 #data stuff
 
 encoder_input_data = np.ndarray((maxPairs,max_english_sentence_length))
-gc.colect()
+gc.collect()
 
 i=0
 for seq in english[:maxPairs]:
@@ -156,12 +158,13 @@ model.compile(optimizer=optimizers.Adam(learning_rate=0.01), loss='categorical_c
 #just summary things
 model.summary()
 from keras.utils.vis_utils import plot_model
-plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+#plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
 
 cp_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath="~/env/Baseline LSTM (Forward)/checkpoints/",
     verbose=1,
-    save_weights_only=False)
+    save_weights_only=False,
+    save_freq='epoch',period=500)
 
 
 model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
