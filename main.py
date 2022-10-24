@@ -18,6 +18,8 @@ latent_dim = 128
 epochs = 5000
 batch_size = 1024
 
+tf.config.list_physical_devices('GPU')
+
 global data
 dataRaw = ParallelCorpus("eng","tok")
 
@@ -36,7 +38,7 @@ for s,t in dataRaw:                                                             
 
 def shuffleData():
   global data
-  random.shuffle(data)
+  shuffle(data)
 shuffleData();                                                                  #ensures that the data used in the first few epochs is always different
 print("Example pair: %s" % str(data[0])[1:-1].replace("', ", "' --> '"))        #prints an example bitext pair
 
@@ -159,7 +161,7 @@ plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=T
 cp_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath="~/env/Baseline LSTM (Forward)/checkpoints/",
     verbose=1,
-    save_weights_only=False))
+    save_weights_only=False)
 
 
 model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
