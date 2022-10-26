@@ -157,8 +157,9 @@ decoder_lstm = LSTM(latent_dim, return_sequences=True)(decoder_embedding, initia
 decoder_lstm._name = "decoder_lstm"
 attention_layer = Attention()([encoder_lstm,decoder_lstm])
 attention_layer._name = "attention_layer"
-decoder_outputs = Dense(num_decoder_tokens, activation='softmax')([attention_layer,decoder_lstm])
+decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(attention_layer)
 decoder_outputs._name = "decoder_outputs"
+
 #compile the model and optimizer
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 model.compile(optimizer=optimizers.Adam(learning_rate=0.01), loss='categorical_crossentropy', metrics=["accuracy"])
