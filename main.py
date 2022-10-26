@@ -16,7 +16,7 @@ maxPairs = 15000
 USE_FREQUENCY_RESTRICTION = False
 latent_dim = 128
 epochs = 5000
-batch_size = 1024
+batch_size = 128
 
 tf.config.list_physical_devices('GPU')
 
