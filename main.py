@@ -141,7 +141,7 @@ from tensorflow.keras import optimizers
 
 #encoder embedding and input layers
 encoder_inputs = Input(shape=(None,))
-encoder_inputs._name = "encoder_inputs"
+encoder_inputs._name = encoder_inputs.name + "encoder_inputs"
 encoder_embedding = Embedding(num_encoder_tokens, latent_dim,input_length=max_english_sentence_length)(encoder_inputs)
 encoder_embedding._name = "encoder_embedding"
 encoder_lstm, state_h, state_c = LSTM(latent_dim,return_state=True)(encoder_embedding)
