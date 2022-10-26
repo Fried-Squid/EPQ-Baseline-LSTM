@@ -14,9 +14,9 @@ from tensorflow.keras import optimizers                                         
 
 maxPairs = 15000
 USE_FREQUENCY_RESTRICTION = False
-latent_dim = 128
+latent_dim = 1024
 epochs = 5000
-batch_size = 128
+batch_size = 64
 
 tf.config.list_physical_devices('GPU')
 
@@ -140,7 +140,7 @@ context = dot([attention, encoder_stack_h], axes=[2,1])                         
 decoder_combined_context = concatenate([context, decoder_stack_h])              #combines the context and hidden states
 
 
-decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(decoder_combined_context) #then finds which word is most likely
+decoder_outputs = Dense(num_decoder_tokens, activation='softmax', dropout=0.1)(decoder_combined_context) #then finds which word is most likely
 
 #compile the model and optimizer
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
@@ -160,6 +160,6 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
 model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
           batch_size=batch_size,
           epochs=epochs,
-          validation_split=0.2,
+          validation_split=0.1,
           callbacks=[cp_callback]
           )
