@@ -5,17 +5,17 @@ from random import shuffle                                                      
 from collections import Counter                                                 #used to count tokens
 import tensorflow as tf                                                         #model backend
 from keras.models import Model
-from keras.layers import Input, LSTM, Dense, Embedding, Flatten, Activation, dot, concatenate, multiply
+from keras.layers import Input, LSTM, Dense, Embedding, Flatten, Activation, dot, concatenate, Dropout
 
 from pipe import traverse                                                       #useful
 import numpy as np                                                              #for messing with tensors
 import gc                                                                       #keeps memory usage low
 from tensorflow.keras import optimizers                                         #adam
 
-maxPairs = 15000
-USE_FREQUENCY_RESTRICTION = False
-latent_dim = 1024
-epochs = 5000
+maxPairs = 25000
+lr = 0.001
+latent_dim = 256
+epochs = 100 #temp
 batch_size = 64
 
 tf.config.list_physical_devices('GPU')
@@ -41,20 +41,14 @@ def shuffleData():
   shuffle(data)
 shuffleData();                                                                  #ensures that the data used in the first few epochs is always different
 print("Example pair: %s" % str(data[0])[1:-1].replace("', ", "' --> '"))        #prints an example bitext pair
-
+print(len(data))
 rawEn,rawTp = list(zip(*data));english,toki = list(rawEn),list(rawTp)
 english,toki=list(map(lambda x:x.split(" "),english)),list(map(lambda x:x.split(" "),toki)) #ace what the fuck
-
-print(len(english))
-print(max(list(map(len, english))), max(list(map(len, toki))))
 
 #i cant lie i love this little bit of code so much
 zipped = sorted(list(zip(english,toki)),key=lambda x:len(x[1]))
 (english, toki) = zip(*zipped[:round(len(zipped)*99/100)]) #strip longest hundreth
 del zipped
-
-print(len(english))
-print(max(list(map(len, english))), max(list(map(len, toki))))
 
 flattened_english = list(english | traverse)
 flattened_toki = list(toki | traverse)
@@ -72,7 +66,7 @@ max_english_sentence_length=max(list(map(len, english)))
 max_toki_sentence_length=max(list(map(len, toki)))
 
 num_encoder_tokens=len(english_tokenizer)
-num_decoder_tokens=len(tok_words)+USE_FREQUENCY_RESTRICTION
+num_decoder_tokens=len(tok_words)
 
 #data stuff
 
@@ -139,12 +133,12 @@ attention = Activation('softmax')(attention)                                    
 context = dot([attention, encoder_stack_h], axes=[2,1])                         #calculates the context vectors
 decoder_combined_context = concatenate([context, decoder_stack_h])              #combines the context and hidden states
 
-
-decoder_outputs = Dense(num_decoder_tokens, activation='softmax', dropout=0.1)(decoder_combined_context) #then finds which word is most likely
+#dropout = Dropout(0.1)(decoder_combined_context) dropedout was bad here
+decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(decoder_combined_context) #then finds which word is most likely
 
 #compile the model and optimizer
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
-model.compile(optimizer=optimizers.Adam(learning_rate=0.01), loss='categorical_crossentropy', metrics=["accuracy"])
+model.compile(optimizer=optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=["accuracy"])
 
 #just summary things
 model.summary()
@@ -157,9 +151,25 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     save_weights_only=False,
     save_freq='epoch',period=500)
 
-model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
+history = model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
           batch_size=batch_size,
           epochs=epochs,
           validation_split=0.1,
           callbacks=[cp_callback]
           )
+
+from matplotlib import pyplot as plt
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'val'], loc='upper left')
+plt.show()
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'val'], loc='upper left')
+plt.show()
