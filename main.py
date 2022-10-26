@@ -5,7 +5,7 @@ from random import shuffle                                                      
 from collections import Counter                                                 #used to count tokens
 import tensorflow as tf                                                         #model backend
 from keras.models import Model
-from keras.layers import Input, LSTM, Dense, Embedding
+from keras.layers import Input, LSTM, Dense, Embedding, Attention
 
 from pipe import traverse                                                       #useful
 import numpy as np                                                              #for messing with tensors
@@ -141,15 +141,16 @@ from tensorflow.keras import optimizers
 
 #encoder embedding and input layers
 encoder_inputs = Input(shape=(None,))
-x = Embedding(num_encoder_tokens, latent_dim,input_length=max_english_sentence_length)(encoder_inputs)
-x, state_h, state_c = LSTM(latent_dim,return_state=True)(x)
+encoder_embedding = Embedding(num_encoder_tokens, latent_dim,input_length=max_english_sentence_length)(encoder_inputs)
+encoder_lstm, state_h, state_c = LSTM(latent_dim,return_state=True)(encoder_embedding)
 encoder_states = [state_h, state_c]
 
 #decoder embedding and dense layer (STOP SETTING THE DENSE NEURON COUNT TO ONE ACE)
 decoder_inputs = Input(shape=(None,))
-x = Embedding(num_decoder_tokens, latent_dim,input_length=max_toki_sentence_length)(decoder_inputs)
-x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
-decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(x)
+decoder_embedding = Embedding(num_decoder_tokens, latent_dim,input_length=max_toki_sentence_length)(decoder_inputs)
+decoder_lstm = LSTM(latent_dim, return_sequences=True)(decoder_embedding, initial_state=encoder_states)
+attention_layer = Attention()([encoder_lstm,decoder_lstm])
+decoder_outputs = Dense(num_decoder_tokens, activation='softmax')([attention_layer,decoder_lstm])
 
 #compile the model and optimizer
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
@@ -158,7 +159,7 @@ model.compile(optimizer=optimizers.Adam(learning_rate=0.01), loss='categorical_c
 #just summary things
 model.summary()
 from keras.utils.vis_utils import plot_model
-#plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
 
 cp_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath="~/env/Baseline LSTM (Forward)/checkpoints/",
@@ -166,7 +167,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     save_weights_only=False,
     save_freq='epoch',period=500)
 
-
+exit()
 model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
           batch_size=batch_size,
           epochs=epochs,
