@@ -141,17 +141,24 @@ from tensorflow.keras import optimizers
 
 #encoder embedding and input layers
 encoder_inputs = Input(shape=(None,))
+encoder_inputs._name = "encoder_inputs"
 encoder_embedding = Embedding(num_encoder_tokens, latent_dim,input_length=max_english_sentence_length)(encoder_inputs)
+encoder_embedding._name = "encoder_embedding"
 encoder_lstm, state_h, state_c = LSTM(latent_dim,return_state=True)(encoder_embedding)
+encoder_lstm._name = "encoder_lstm"
 encoder_states = [state_h, state_c]
 
 #decoder embedding and dense layer (STOP SETTING THE DENSE NEURON COUNT TO ONE ACE)
 decoder_inputs = Input(shape=(None,))
+decoder_inputs._name = "decoder_inputs"
 decoder_embedding = Embedding(num_decoder_tokens, latent_dim,input_length=max_toki_sentence_length)(decoder_inputs)
+decoder_embedding._name = "decoder_embedding"
 decoder_lstm = LSTM(latent_dim, return_sequences=True)(decoder_embedding, initial_state=encoder_states)
+decoder_lstm._name = "decoder_lstm"
 attention_layer = Attention()([encoder_lstm,decoder_lstm])
+attention_layer._name = "attention_layer"
 decoder_outputs = Dense(num_decoder_tokens, activation='softmax')([attention_layer,decoder_lstm])
-
+decoder_outputs._name = "decoder_outputs"
 #compile the model and optimizer
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 model.compile(optimizer=optimizers.Adam(learning_rate=0.01), loss='categorical_crossentropy', metrics=["accuracy"])
