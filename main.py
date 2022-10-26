@@ -5,7 +5,7 @@ from random import shuffle                                                      
 from collections import Counter                                                 #used to count tokens
 import tensorflow as tf                                                         #model backend
 from keras.models import Model
-from keras.layers import Input, LSTM, Dense, Embedding, Attention
+from keras.layers import Input, LSTM, Dense, Embedding, Flatten, Activation, dot, concatenate, multiply
 
 from pipe import traverse                                                       #useful
 import numpy as np                                                              #for messing with tensors
@@ -45,22 +45,16 @@ print("Example pair: %s" % str(data[0])[1:-1].replace("', ", "' --> '"))        
 rawEn,rawTp = list(zip(*data));english,toki = list(rawEn),list(rawTp)
 english,toki=list(map(lambda x:x.split(" "),english)),list(map(lambda x:x.split(" "),toki)) #ace what the fuck
 
-x = list(map(len, english))
-engToRemove,tokToRemove = [],[]
-for i in x:
-  if i > 25:
-    engToRemove.append(english[x.index(i)])
-    tokToRemove.append(toki[x.index(i)])
-for each in engToRemove:
-  try:
-    english.remove(each)
-  except:
-    pass
-for each in tokToRemove:
-  try:
-    toki.remove(each)
-  except:
-    pass
+print(len(english))
+print(max(list(map(len, english))), max(list(map(len, toki))))
+
+#i cant lie i love this little bit of code so much
+zipped = sorted(list(zip(english,toki)),key=lambda x:len(x[1]))
+(english, toki) = zip(*zipped[:round(len(zipped)*99/100)]) #strip longest hundreth
+del zipped
+
+print(len(english))
+print(max(list(map(len, english))), max(list(map(len, toki))))
 
 flattened_english = list(english | traverse)
 flattened_toki = list(toki | traverse)
@@ -71,17 +65,7 @@ toki_counter=Counter(flattened_toki)
 eng_words = list(english_counter.keys())
 tok_words = list(toki_counter.keys())
 
-#Memory usage limiting via USE_FREQUENCY_RESTRICTION, not in use due to lots of ram atm.
-if USE_FREQUENCY_RESTRICTION:
-  unknown_tok_tokens=[]
-  for word in tok_words[:]:
-    if toki_counter[word] < 5:
-      tok_words.remove(word)
-      unknown_tok_tokens.append(word)
-  toki_tokenizer=dict(zip(sorted(tok_words)+unknown_tok_tokens,list(range(0, len(tok_words))) + [999]*len(unknown_tok_tokens)))
-else:
-  toki_tokenizer=dict(zip(sorted(tok_words),list(range(0, len(tok_words)))))
-
+toki_tokenizer=dict(zip(sorted(tok_words),list(range(0, len(tok_words)))))
 english_tokenizer=dict(zip(sorted(eng_words),list(range(0, len(eng_words)))))
 
 max_english_sentence_length=max(list(map(len, english)))
@@ -141,24 +125,22 @@ from tensorflow.keras import optimizers
 
 #encoder embedding and input layers
 encoder_inputs = Input(shape=(None,))
-encoder_inputs._name = encoder_inputs.name + "encoder_inputs"
 encoder_embedding = Embedding(num_encoder_tokens, latent_dim,input_length=max_english_sentence_length)(encoder_inputs)
-encoder_embedding._name = "encoder_embedding"
-encoder_lstm, state_h, state_c = LSTM(latent_dim,return_state=True)(encoder_embedding)
-encoder_lstm._name = "encoder_lstm"
-encoder_states = [state_h, state_c]
+encoder_stack_h, encoder_state_h, encoder_state_c = LSTM(latent_dim,return_state=True,return_sequences=True)(encoder_embedding)
+encoder_states = [encoder_state_h, encoder_state_c]
 
 #decoder embedding and dense layer (STOP SETTING THE DENSE NEURON COUNT TO ONE ACE)
 decoder_inputs = Input(shape=(None,))
-decoder_inputs._name = "decoder_inputs"
 decoder_embedding = Embedding(num_decoder_tokens, latent_dim,input_length=max_toki_sentence_length)(decoder_inputs)
-decoder_embedding._name = "decoder_embedding"
-decoder_lstm = LSTM(latent_dim, return_sequences=True)(decoder_embedding, initial_state=encoder_states)
-decoder_lstm._name = "decoder_lstm"
-attention_layer = Attention()([encoder_lstm,decoder_lstm])
-attention_layer._name = "attention_layer"
-decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(attention_layer)
-decoder_outputs._name = "decoder_outputs"
+decoder_stack_h = LSTM(latent_dim, return_sequences=True)(decoder_embedding, initial_state=encoder_states)
+
+attention = dot([decoder_stack_h, encoder_stack_h], axes=[2, 2])                #finds the dot product between the sequences
+attention = Activation('softmax')(attention)                                    #softmaxes it
+context = dot([attention, encoder_stack_h], axes=[2,1])                         #calculates the context vectors
+decoder_combined_context = concatenate([context, decoder_stack_h])              #combines the context and hidden states
+
+
+decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(decoder_combined_context) #then finds which word is most likely
 
 #compile the model and optimizer
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
@@ -175,7 +157,6 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     save_weights_only=False,
     save_freq='epoch',period=500)
 
-exit()
 model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
           batch_size=batch_size,
           epochs=epochs,
