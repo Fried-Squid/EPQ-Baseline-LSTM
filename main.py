@@ -13,10 +13,10 @@ import gc                                                                       
 from tensorflow.keras import optimizers                                         #adam
 
 maxPairs = 25000
-lr = 0.001
+lr = 0.0001
 latent_dim = 256
-epochs = 100 #temp
-batch_size = 64
+epochs = 250 #temp
+batch_size = 32
 
 tf.config.list_physical_devices('GPU')
 
